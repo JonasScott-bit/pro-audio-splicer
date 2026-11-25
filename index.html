@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<!--APP_VERSION=8-->
+<!--APP_VERSION=9-->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -867,7 +867,7 @@ async function getFFmpeg(onStatus){
       await loadScriptOnce("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js");
     }
     var inst=FFmpeg.createFFmpeg({log:false,
-      corePath:"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js",
+      corePath:"https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.0/dist/ffmpeg-core.js",
       progress:function(p){
         if(!onStatus||!p||typeof p.ratio!=="number"||!isFinite(p.ratio))return;
         var pct=Math.max(1,Math.min(99,Math.round(p.ratio*100)));
@@ -2575,7 +2575,7 @@ $("shareSliceBtn").addEventListener("click",async function(){
    to a ?v=<build> address because a plain reload can be served from cache —
    and the ?v= value doubles as the loop guard: if we already tried to load
    that build and are still running this one, we never auto-reload twice. */
-var APP_VERSION="8";
+var APP_VERSION="9";
 var updateFound=null,lastVersionCheck=0,triedVersion=null;
 function pageUrlWith(v){
   var p=window.location.pathname||"/";
