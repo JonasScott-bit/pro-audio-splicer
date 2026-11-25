@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<!--APP_VERSION=9-->
+<!--APP_VERSION=10-->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -831,11 +831,14 @@ function sel(){for(var i=0;i<slices.length;i++)if(slices[i].id===selectedId)retu
    an offline context accepts, older Safari only honours the callback form,
    and a suspended context can refuse outright. Try each in turn on a fresh
    copy of the bytes (decode detaches the ArrayBuffer it is given). */
+function withTimeout(promise,ms,label){
+  return Promise.race([promise,new Promise(function(_,rej){setTimeout(function(){rej(new Error(label||"timed out"));},ms);})]);
+}
 async function decodeArrayBuffer(ab){
   var lastErr=null;
-  try{return await actx.decodeAudioData(ab.slice(0));}catch(e){lastErr=e;}
-  try{var off=new OfflineAudioContext(2,44100,44100);return await off.decodeAudioData(ab.slice(0));}catch(e){lastErr=e;}
-  try{return await new Promise(function(res,rej){actx.decodeAudioData(ab.slice(0),res,rej);});}catch(e){lastErr=e;}
+  try{return await withTimeout(actx.decodeAudioData(ab.slice(0)),15000,"native decode timed out");}catch(e){lastErr=e;}
+  try{var off=new OfflineAudioContext(2,44100,44100);return await withTimeout(off.decodeAudioData(ab.slice(0)),15000,"offline decode timed out");}catch(e){lastErr=e;}
+  try{return await withTimeout(new Promise(function(res,rej){actx.decodeAudioData(ab.slice(0),res,rej);}),15000,"callback decode timed out");}catch(e){lastErr=e;}
   throw lastErr||new Error("decode failed");
 }
 /* ---- built-in media decoder (ffmpeg.wasm) ----
@@ -873,7 +876,7 @@ async function getFFmpeg(onStatus){
         var pct=Math.max(1,Math.min(99,Math.round(p.ratio*100)));
         if(pct-ffmpegLastPct>=5){ffmpegLastPct=pct;onStatus("Reading the audio out of your file… "+pct+"%");}
       }});
-    await inst.load();
+    await withTimeout(inst.load(),180000,"the built-in decoder took too long to load — check your connection and try again");
     ffmpegInstance=inst;
     return inst;
   })();
@@ -899,14 +902,24 @@ async function ffmpegExtractWavBuffer(file,onStatus){
     try{ff.FS("unlink",outName);}catch(e){}
   }
 }
+var VIDEO_EXTS={mp4:1,m4v:1,mov:1,webm:1,mkv:1,"3gp":1,avi:1,mpg:1,mpeg:1,wmv:1};
 async function decodeAudioFile(file,onStatus){
   ensureCtx();
   if(actx.state==="suspended"||actx.state==="interrupted"){try{await actx.resume();}catch(e){}}
+  var ext=((file.name||"").split(".").pop()||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  var looksVideo=(file.type&&file.type.indexOf("video/")===0)||!!VIDEO_EXTS[ext];
+  if(looksVideo){
+    // Video containers go straight to the built-in decoder: the native
+    // decode attempts can hang indefinitely on video files in some
+    // browsers, and on iOS they refuse video outright anyway.
+    var wavAbV=await ffmpegExtractWavBuffer(file,onStatus);
+    return await decodeArrayBuffer(wavAbV);
+  }
   var ab=await file.arrayBuffer();
   try{return await decodeArrayBuffer(ab);}
   catch(nativeErr){
-    // The native decoder refused it — most often a video container on
-    // iOS. Extract the audio track with the built-in decoder instead.
+    // The native decoder refused it. Extract the audio track with the
+    // built-in decoder instead.
     var wavAb=await ffmpegExtractWavBuffer(file,onStatus);
     return await decodeArrayBuffer(wavAb);
   }
@@ -2575,7 +2588,7 @@ $("shareSliceBtn").addEventListener("click",async function(){
    to a ?v=<build> address because a plain reload can be served from cache —
    and the ?v= value doubles as the loop guard: if we already tried to load
    that build and are still running this one, we never auto-reload twice. */
-var APP_VERSION="9";
+var APP_VERSION="10";
 var updateFound=null,lastVersionCheck=0,triedVersion=null;
 function pageUrlWith(v){
   var p=window.location.pathname||"/";
