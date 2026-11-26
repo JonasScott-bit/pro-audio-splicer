@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<!--APP_VERSION=10-->
+<!--APP_VERSION=11-->
+<script src="coi-serviceworker.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="light dark" />
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -227,7 +228,7 @@ input[type="range"].dial-hidden{display:none}
   <div class="updatebar" role="note" id="updateBar">
     <span class="grow" id="updateMsg"><strong>Home-screen icon:</strong> it now <strong>updates itself</strong>. This page checks for a newer version every time it opens and whenever you come back to it, and refreshes itself when one is found — you never need to delete and re-add the icon. If a check finds an update while you have unsaved work loaded, it waits and shows an “Update ready” button here instead of interrupting you.</span>
     <button class="btn" id="reloadLatestBtn" type="button">↻ Reload latest version</button>
-    <span class="note mono" style="margin:0">Build: Auto-update · v8</span>
+    <span class="note mono" style="margin:0" id="buildLabel">Build: Auto-update</span>
   </div>
 
   <div class="flowtrack" aria-label="Your progress through the app">
@@ -870,7 +871,7 @@ async function getFFmpeg(onStatus){
       await loadScriptOnce("https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js");
     }
     var inst=FFmpeg.createFFmpeg({log:false,
-      corePath:"https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.0/dist/ffmpeg-core.js",
+      corePath:"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js",
       progress:function(p){
         if(!onStatus||!p||typeof p.ratio!=="number"||!isFinite(p.ratio))return;
         var pct=Math.max(1,Math.min(99,Math.round(p.ratio*100)));
@@ -940,7 +941,8 @@ async function loadFile(file){
     if(typeof setFlow==="function")setFlow(1,"flow2");
     toast("Loaded — "+fmtDur(buf.duration)+", "+buf.sampleRate+" Hz."+(buf.duration>900?" It's over 15 minutes, so converting will take a little longer — still fine.":"")+" Check the green Track info card under your file — edit the title/artist there first, then Convert or Auto-cut for slices.");
   }catch(err){
-    toast("That file couldn't be opened ("+file.name+"). Both decoders tried — the browser's own and the built-in one — and neither found a readable audio track. If the file is a video, make sure it actually has sound; if it's an unusual format, export its audio as MP3 or M4A from any player app and load that instead.");
+    var detail=(err&&err.message)?String(err.message).slice(0,140):"no detail given";
+    toast("That file couldn't be opened ("+file.name+"). Both decoders tried — the browser's own and the built-in one — and neither found a readable audio track. If the file is a video, make sure it actually has sound; if it's an unusual format, export its audio as MP3 or M4A from any player app and load that instead. [Decoder said: "+detail+"]");
   }
 }
 function showFileInfo(){
@@ -2588,7 +2590,8 @@ $("shareSliceBtn").addEventListener("click",async function(){
    to a ?v=<build> address because a plain reload can be served from cache —
    and the ?v= value doubles as the loop guard: if we already tried to load
    that build and are still running this one, we never auto-reload twice. */
-var APP_VERSION="10";
+var APP_VERSION="11";
+var buildLabelEl=document.getElementById("buildLabel");if(buildLabelEl)buildLabelEl.textContent="Build: Auto-update · v"+APP_VERSION;
 var updateFound=null,lastVersionCheck=0,triedVersion=null;
 function pageUrlWith(v){
   var p=window.location.pathname||"/";
