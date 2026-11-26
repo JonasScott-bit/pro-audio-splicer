@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><title>ffmpeg probe</title>
+<body style="font-family:monospace;background:#111;color:#eee;padding:16px">
+<h3>ffmpeg.wasm probe — app-identical loader</h3>
+<input type="file" id="f" style="font-size:18px">
+<pre id="log" style="white-space:pre-wrap;font-size:13px;line-height:1.5"></pre>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+<script>
+var logEl=document.getElementById('log');
+function L(m){logEl.textContent+=m+"\n";}
+window.onerror=function(m,s,l){L("WINDOW ERROR: "+m+" @"+s+":"+l);};
+L("page loaded; FFmpeg global: "+typeof FFmpeg+"; crossOriginIsolated="+window.crossOriginIsolated+"; SharedArrayBuffer="+(typeof SharedArrayBuffer));
+document.getElementById('f').addEventListener('change', async function(){
+  var file=this.files[0]; if(!file)return;
+  L("file: "+file.name+" type="+file.type+" size="+file.size);
+  try{
+    var inst=FFmpeg.createFFmpeg({log:true, corePath:"https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.0/dist/ffmpeg-core.js",
+      logger:function(m){L("[ffmpeg] "+(m&&m.message));},
+      progress:function(p){L("[progress] "+JSON.stringify(p));}});
+    L("created; calling load()...");
+    var t=Date.now();
+    await inst.load();
+    L("load() OK in "+(Date.now()-t)+"ms");
+    inst.FS("writeFile","input.mov", await FFmpeg.fetchFile(file));
+    L("wrote input; running extract...");
+    await inst.run("-i","input.mov","-vn","-acodec","pcm_s16le","extracted.wav");
+    var data=inst.FS("readFile","extracted.wav");
+    L("RESULT extracted.wav bytes: "+(data&&data.length));
+  }catch(e){
+    L("FAILED: "+(e&&e.message?e.message:e)+" || stack: "+(e&&e.stack?e.stack.split("\n").slice(0,4).join(" | "):"none"));
+  }
+});
+</script>
+</body>
